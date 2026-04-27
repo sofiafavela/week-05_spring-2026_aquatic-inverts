@@ -1,0 +1,6 @@
+---
+title: "in-class-template"
+author: "sofia favela"
+format: pdf
+---
+
