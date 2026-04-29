@@ -2,7 +2,7 @@
 title: "Week 5: aquatic invertebrates"
 subtitle: "Key"
 date: "2026-04-27"
-author: "insert your name here"
+author: "sofia favela"
 format: 
   pdf:
     include-in-header: 
