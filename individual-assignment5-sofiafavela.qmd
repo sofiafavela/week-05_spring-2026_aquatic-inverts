@@ -345,4 +345,5 @@ ggplot(data = sal_abundance,
   # remove legend since taxon is already labeled in facet strips
   theme(legend.position = "none")
 ```
-
+## d. Interpreting the figure
+Ostracod, copecod and cladocera show the highest log-transformed abundance values overall with most of their higher abundance observations at low salinity under 10 ppt. Copecods have some higher abundance points at mid range salinity levels approximately around 40 ppt. Annelida polychaete, diptera chironomid, diptera ceratopogonidae, and nematode have low abundance across all salinity levels, with many points clustered near zero regardless of salinity, suggesting that their presence is just rare at NCOS. Annelida oligochaete shows an interesting pattern peaking in abundance at higher salinity values between 45-70 ppt which could sggest that they are pretty tolernat to salty conditons. 
