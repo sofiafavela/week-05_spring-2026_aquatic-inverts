@@ -275,11 +275,17 @@ ostracods_plot
 # d. Create a multipanel figure
 ```{r}
 #| label: multipanel-figure
-#| fig-width: 10
-#| fig-height: 14
+#| fig-width: 12
+#| fig-height: 10
 
-# combine all three panels using patchwork:
-# salinity on top, copepods in middle, ostracods on bottom
-salinity / copepods_plot / ostracods_plot
+# salinity on top spanning full width, copepods and ostracods side by side below
+salinity / (copepods_plot | ostracods_plot)
 ```
+
+## e. Interpret your figure
+
+Copecod and Ostracod abundance differ across sites, copecod median abundance depicted by the blue points is highest at South Venoco bridge with a median of 3.5, and Devereux creek with a median of approximately 2.7, with it's lowest median being at Main channel and North of Phelps Bridge with a median of approximately 0.3. Ostracod median abundance represented by the orange triangles is highest at South of Phelps Bridge with a median of approximately 2.3, while most other sites have medians near zero. 
+
+ The highest Ostracod abundance ~ 2.3 at south of Phelps Bridge has relatively low median salinity depicted by the red point approximately 5 ppt. North and South of Venoco Bridge have the highest salinity medians, 45, and 41 ppt respectively and have near zero medians which suggests that Ostracods may be negatively impacted by high salinity conditons. 
+
 
