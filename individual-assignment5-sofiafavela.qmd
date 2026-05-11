@@ -297,3 +297,26 @@ Copecod and Ostracod abundance differ across sites, copecod median abundance dep
 - geometry: `geom_point()` — one point per survey event per taxon
 - facets: `facet_wrap(~ taxon, scales = "free")` — separate panel per taxon with free x and y axis scales
 
+## b. Wrangle your data
+
+- log + 1 transform average abundance per liter
+- convert taxon names to title case
+- order taxon levels by maximum abundance
+
+```{r}
+#| label: salinity-abundance-wrangling
+
+# create new data frame from aq_ins_clean
+sal_abundance <- aq_ins_clean |> 
+  # log + 1 transform average abundance per liter to reduce skew
+  mutate(log_ave_lit = log(ave_lit + 1)) |> 
+  # convert taxon names to title case for readable panel labels
+  mutate(taxon = str_to_title(str_replace_all(taxon, "_", " "))) |> 
+  # order taxon factor levels by maximum abundance (highest max first)
+  mutate(taxon = fct_reorder(taxon, ave_lit, .fun = "max", .desc = TRUE))
+
+# display 10 random rows to verify output
+slice_sample(sal_abundance, n = 10)
+```
+
+
