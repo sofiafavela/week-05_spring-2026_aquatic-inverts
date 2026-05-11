@@ -221,7 +221,7 @@ salinity / copepods_plot
 - x axis: `site_full` (site name)
 - y axis: log + 1 transformed average ostracod abundance per liter 
 - geometry to represent average abundance/L: `geom_jitter()` to plot every individual survey observation as points
-- geometry to represent medians: `stsat_summary(fun = "median")` overlays colored points to show medians per site 
+- geometry to represent medians: `stat_summary(fun = "median")` overlays colored points to show medians per site 
 
 ## b. Wragling Data
  - filter `aq_ins_clean` to only include ostracods
@@ -292,11 +292,11 @@ Copecod and Ostracod abundance differ across sites, copecod median abundance dep
 # 2. Visualizing total abundance as a function of salinity
 
 ## a. Planning my figure 
--x-axis: `med_sal` (median salinity in ppt, continuous)
+- x-axis: `med_sal` (median salinity in ppt, continuous)
 - y-axis: `log_ave_lit` (log + 1 transformed average abundance per liter)
 - color: `taxon` (one color per taxon)
-- geometry: `geom_point()` — one point per survey event per taxon
-- facets: `facet_wrap(~ taxon, scales = "free")` — separate panel per taxon with free x and y axis scales
+- geometry: `geom_point()`
+- facets: `facet_wrap(~ taxon, scales = "free")`
 
 ## b. Wrangle your data
 
