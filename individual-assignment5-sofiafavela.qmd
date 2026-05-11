@@ -288,4 +288,12 @@ Copecod and Ostracod abundance differ across sites, copecod median abundance dep
 
  The highest Ostracod abundance ~ 2.3 at south of Phelps Bridge has relatively low median salinity depicted by the red point approximately 5 ppt. North and South of Venoco Bridge have the highest salinity medians, 45, and 41 ppt respectively and have near zero medians which suggests that Ostracods may be negatively impacted by high salinity conditons. 
 
+# 2. Visualizing total abundance as a function of salinity
+
+## a. Planning my figure 
+-*x-axis: `med_sal` (median salinity in ppt, continuous)
+- y-axis: `log_ave_lit` (log + 1 transformed average abundance per liter)
+- color: `taxon` (one color per taxon)
+- geometry: `geom_point()` — one point per survey event per taxon
+- facets: `facet_wrap(~ taxon, scales = "free")` — separate panel per taxon with free x and y axis scales
 
