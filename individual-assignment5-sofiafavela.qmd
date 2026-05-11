@@ -1,8 +1,17 @@
 ---
 title: "individual-assignment5"
 author: "sofia favela"
-format: pdf
-date: 5/8/2026
+date: "5/8/2026"
+format: 
+  pdf:
+    include-in-header: 
+       text: |
+         \usepackage{fvextra}
+         \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+         \DefineVerbatimEnvironment{OutputCode}{Verbatim}{breaklines,commandchars=\\\{\}}
+execute:
+  message: false
+  warning: false
 ---
 
 # Set Up 
@@ -31,6 +40,7 @@ library(snakecase)
 
 ## Data
 ```{r}
+#| label: data
 # taxonomic information for each taxon ID
 taxon_list <- read_csv(here("data", "taxon_list.csv"))
 
@@ -47,16 +57,173 @@ water_quality <- read_xlsx(here("data", "Aquatic Sampling Data-2026-03-10.xlsx")
                            sheet = "Water Quality",
                            na = c("", "n/a", "N/A", "over", "173+"))
 ```
+## Class Code
+```{r}
+#| label: ncos-site-object
 
-# a. Planning the figure 
+# filter sites to only quarterly NCOS sites for downstream filtering joins
+ncos_sites <- sites |> 
+  filter(sector == "NCOS" & sampling_frequency == "Quarterly")
+```
 
-- x axis: `site_full` ( site name)
+```{r}
+#| label: cleaning-taxon-list 
+
+# convert taxon names to snake_case so they match column names in aq_ins
+taxon_list_clean <- taxon_list |> 
+  mutate(verbatim_name = to_any_case(verbatim_name, case = "snake"))
+```
+
+```{r}
+#| label: water-quality-cleaning
+
+# create summarized water quality data frame for each date-site combination
+water_quality_clean <- water_quality |> 
+  # standardize column names
+  clean_names() |> 
+  # keep only NCOS quarterly sites
+  semi_join(ncos_sites, by = "site") |> 
+  # create a single date_site key for joining
+  unite("date_site", date, site, remove = TRUE) |> 
+  # group by survey event
+  group_by(date_site) |> 
+  # calculate median water quality metrics per survey event
+  summarize(med_ph = median(p_h, na.rm = TRUE),
+            med_sal = median(salinity_ppt, na.rm = TRUE),
+            med_do = median(dissolved_oxygen_mg_l, na.rm = TRUE)) |> 
+  # ungroup data frame
+  ungroup() |> 
+  # remove a known salinity outlier
+  filter(date_site != "2022-08-12_NVBR")
+```
+
+```{r}
+#| label: cleaning-aq-ins
+
+# create main analysis data frame: long format with one row per
+# taxon per survey event, with water quality and taxonomy joined in
+aq_ins_clean <- aq_ins |> 
+  # standardize column names
+  clean_names() |> 
+  # keep only NCOS quarterly sites
+  semi_join(ncos_sites, by = c("site")) |> 
+  # rename date column for clarity
+  rename(date = date_on_vial) |> 
+  # select only relevant taxon and metadata columns
+  select(date, sample_type, site,
+         ostracod, copepod,
+         hemiptera_corixidae_boatman,
+         cladocera, nematode,
+         diptera_ceratopogonidae,
+         annelida_oligochaete,
+         diptera_chironomid,
+         annelida_polychaete) |> 
+  # keep only filtered beaker samples
+  filter(sample_type %in% c("FB 250", "FB250")) |> 
+  # pivot to long format so each row is one taxon per survey
+  pivot_longer(cols = ostracod:annelida_polychaete,
+               names_to = "taxon",
+               values_to = "abundance") |> 
+  # group by survey event and taxon
+  group_by(date, site, taxon) |> 
+  # calculate average abundance per liter (total count / 7.5 L)
+  summarize(ave_lit = sum(abundance, na.rm = TRUE) / 7.5) |> 
+  # ungroup data frame
+  ungroup() |> 
+  # create date_site key for joining with water quality
+  unite("date_site", date, site, remove = FALSE) |> 
+  # attach water quality measurements
+  left_join(water_quality_clean, by = "date_site") |> 
+  # attach full taxonomic information
+  left_join(taxon_list_clean, by = c("taxon" = "verbatim_name")) |> 
+  # add human-readable site names
+  mutate(site_full = case_when(
+    site == "NVBR"  ~ "North of Venoco Bridge",
+    site == "NEC"   ~ "South of Venoco Bridge",
+    site == "NMC"   ~ "Main Channel",
+    site == "NPB"   ~ "South of Phelps Bridge",
+    site == "NPB1"  ~ "North of Phelps Bridge",
+    site == "NPB2"  ~ "Phelps Road",
+    site == "NWP"   ~ "West Pond",
+    site == "NDC"   ~ "Devereux Creek"
+  )) |> 
+  # order sites by median salinity (high to low) for consistent axis ordering
+  mutate(site_full = fct_reorder(site_full, med_sal,
+                                 .fun = "median", .na_rm = TRUE),
+         site_full = fct_rev(site_full))
+```
+
+```{r}
+#| label: visualizing-salinity
+#| fig-width: 8
+#| fig-height: 6
+
+# salinity panel: one point per survey, median shown in red
+salinity <- ggplot(data = aq_ins_clean,
+                   mapping = aes(x = site_full, y = med_sal)) +
+  # individual survey salinity measurements
+  geom_jitter(height = 0, width = 0.1, shape = 21) +
+  # wrap long site names on x-axis
+  scale_x_discrete(labels = label_wrap(width = 15)) +
+  # red point for median salinity per site
+  stat_summary(fun = median, color = "red", size = 1) +
+  labs(x = "Site",
+       y = "Median salinity (ppt)",
+       title = "Site salinity") +
+  theme_bw()
+
+salinity
+```
+
+```{r}
+#| label: copepod-cleaning 
+
+# filter to copepods only and log+1 transform abundance
+copepods <- aq_ins_clean |> 
+  filter(taxon == "copepod") |> 
+  mutate(log_ave_lit = log(ave_lit + 1))
+```
+
+```{r}
+#| label: visualizing-copepods
+#| fig-width: 10
+#| fig-height: 6
+
+# copepod panel: individual observations + blue median point
+copepods_plot <- ggplot(data = copepods,
+                        mapping = aes(x = site_full, y = log_ave_lit)) +
+  # individual observations as open circles
+  geom_jitter(height = 0, shape = 21, width = 0.1) +
+  # blue point for median per site
+  stat_summary(geom = "point", fun = "median",
+               size = 4, color = "blue") +
+  scale_x_discrete(labels = label_wrap(15)) +
+  labs(x = "Site",
+       y = "log + 1 transformed average abundance/L",
+       title = "Copepods") +
+  theme_bw()
+
+copepods_plot
+```
+
+```{r}
+#| label: site-diff-plots
+#| fig-width: 8
+#| fig-height: 10
+
+# two-panel figure from class: salinity stacked above copepods
+salinity / copepods_plot
+```
+
+## a. Planning the figure 
+
+- x axis: `site_full` (site name)
 - y axis: log + 1 transformed average ostracod abundance per liter 
-- geometry to represent average abundance/L: 'geom_jitter() to plot every individual survey observation as points
+- geometry to represent average abundance/L: `geom_jitter()` to plot every individual survey observation as points
 - geometry to represent medians: stat_summary(fun = "median") overlays colored points to show medians per site 
 
-# b. Wragling Data
- - filter aq_ins_clean to only include ostracods
+## b. Wragling Data
+ - filter `aq_ins_clean` to only include ostracods
  - log +1 transform average abundances 
 
 ```{r}
@@ -74,12 +241,45 @@ slice_sample(ostracods, n = 10)
  
 # c. Coding the figure
 ```{r}
+#| label: visualizing-ostracods
+#| fig-width: 10
+#| fig-height: 6
 
+# base layer: x = site, y = log transformed ostracod abundance
+ostracods_plot <- ggplot(data = ostracods,
+                         mapping = aes(x = site_full,
+                                       y = log_ave_lit)) +
+  # individual survey observations as open circles
+  geom_jitter(height = 0,
+              width = 0.1,
+              shape = 21) +
+  # median per site: large filled orange triangle to stand out from observations
+  stat_summary(geom = "point",
+               fun = "median",
+               size = 5,
+               color = "darkorange",
+               shape = 17) +
+  # wrap long site names so they don't overlap on x-axis
+  scale_x_discrete(labels = label_wrap(15)) +
+  # clear axis labels and title naming the taxonomic group
+  labs(x = "Site",
+       y = "log + 1 transformed average abundance/L",
+       title = "Ostracods") +
+  # clean theme different from default gray
+  theme_bw()
 
-
-
-
-
+# display the plot
+ostracods_plot
 ```
 
+# d. Create a multipanel figure
+```{r}
+#| label: multipanel-figure
+#| fig-width: 10
+#| fig-height: 14
+
+# combine all three panels using patchwork:
+# salinity on top, copepods in middle, ostracods on bottom
+salinity / copepods_plot / ostracods_plot
+```
 
