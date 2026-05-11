@@ -1,0 +1,85 @@
+---
+title: "individual-assignment5"
+author: "sofia favela"
+format: pdf
+date: 5/8/2026
+---
+
+# Set Up 
+
+## Packages
+
+```{r}
+#| label: packages
+
+# general use and cleaning
+library(tidyverse)
+library(janitor)
+# file organization
+library(here)
+# wrapping long axis labels
+library(scales)
+# reading in .xlsx files
+library(readxl)
+# visualizing missing data
+library(naniar)
+# arranging multiple plots
+library(patchwork)
+# converting to snake case
+library(snakecase)
+```
+
+## Data
+```{r}
+# taxonomic information for each taxon ID
+taxon_list <- read_csv(here("data", "taxon_list.csv"))
+
+# aquatic invertebrate count data
+aq_ins <- read_xlsx(here("data", "Aquatic Sampling Data-2026-03-10.xlsx"),
+                    sheet = "Aquatic Insects")
+
+# site metadata
+sites <- read_xlsx(here("data", "Aquatic Sampling Data-2026-03-10.xlsx"),
+                   sheet = "sites")
+
+# water quality measurements
+water_quality <- read_xlsx(here("data", "Aquatic Sampling Data-2026-03-10.xlsx"),
+                           sheet = "Water Quality",
+                           na = c("", "n/a", "N/A", "over", "173+"))
+```
+
+# a. Planning the figure 
+
+- x axis: `site_full` ( site name)
+- y axis: log + 1 transformed average ostracod abundance per liter 
+- geometry to represent average abundance/L: 'geom_jitter() to plot every individual survey observation as points
+- geometry to represent medians: stat_summary(fun = "median") overlays colored points to show medians per site 
+
+# b. Wragling Data
+ - filter aq_ins_clean to only include ostracods
+ - log +1 transform average abundances 
+
+```{r}
+#| label: wrangling-aq-ins_clean_data_frame
+
+# creating new object from aq_ins_clean
+ostracods <- aq_ins_clean |> 
+  # filter to only include the taxon titled ostracod
+  filter(taxon == "ostracod") |> 
+  # creates new column called log_ave_lit that contains the log + 1 transformed average abundance per liter 
+  mutate(log_ave_lit = log(ave_lit + 1))
+
+slice_sample(ostracods, n = 10)
+```
+ 
+# c. Coding the figure
+```{r}
+
+
+
+
+
+
+```
+
+

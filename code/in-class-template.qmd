@@ -68,13 +68,142 @@ ncos_sites <- sites |>
   # filter to only include NCOS quarterly sites 
   filter(sector == "NCOS" & sampling_frequency == "Quarterly")
 
+```
 
+## clean `taxon_list`
+
+Goal: convert character strings in existing `taxon_list` data frame into snake case
+
+Use: join with aquatic inverts to attach taxonomic information to species IDs
+
+```{r}
+# creating new clean object from taxon_list
+taxon_list_clean <- taxon_list |> 
+  # converting taxon name to snake case (no spaces or capital letters,
+  # only underscores)
+  mutate(verbatim_name = to_any_case(verbatim_name, case = "snake"))
 
 ```
 
+## Cleaning `water_quality`
 
+Goal: create data frame with mean pH, mean DO (in mg/L), and mean salinity (in ppt) for each date and site
 
+Use: join with aquatic inverts to attach water quality information to surveys
 
+Pseudocode:
 
+- create new object from `water_quality`
+- clean column names
+- only include surveys from quarterly NCOS sites
+- create a new column called `date_site` to join with later data frames
+- group by `date_site`
+- calculate median pH, salinity (ppt), and dissolved oxygen (mg/L)
+- ungroup data frame
+- filter out salinity outliers
 
+```{r}
+#| label: water-quality-cleaning
+
+# creating new clean object from water quality
+water_quality_clean <- water_quality |> 
+  # clean column names
+  clean_names() |> 
+  # filtering join: only include sites in ncos_sites
+  semi_join(ncos_sites, by = "site") |> 
+  # create new column to join with later data frames
+  unite("date_site", date, site, remove = TRUE) |> 
+  # group by date_site column
+  group_by(date_site) |> 
+  # calculate median pH, salinity, DO
+  summarize(med_ph = median(p_h, na.rm = TRUE),
+            med_sal = median(salinity_ppt, na.rm = TRUE),
+            med_do = median(dissolved_oxygen_mg_l, na.rm = TRUE)) |> 
+  # ungroup data frames
+  ungroup() |> 
+  # filter out salinity outliers
+  filter(date_site != "2022-08-12_NVBR") 
+```
   
+## Cleaning `aq_ins`
+
+Goal: create long format data frame in which each row contains the counted individuals in each taxon during each survey on each date with all the taxonomic information for the taxon and the water quality information for the survey
+
+Use: visualize relationships between water quality parameters and aquatic invertebrate abundances
+
+Pseudocode:
+
+- create new object from `aq_ins`
+- clean column names
+- filter to only include sites in NCOS sites
+- select columns of interest
+- filter to only include "filtered beaker" samples
+- convert the data frame to long format
+- group by date, site, taxon
+- calculate average abundance per liter (sum abundance divided by 7.5 liters)
+- create a new column called `date_site` to join with water quality
+- join with water quality
+- join with taxon list
+
+```{r}
+#| label: cleaning-aq-ins
+
+# creating new clean object from aquatic inverts
+aq_ins_clean <- aq_ins |> 
+  # clean column names
+  clean_names() |> 
+  # filtering join: only include sites occurring in ncos_sites
+  semi_join(ncos_sites, by = c("site")) |>
+  # renaming columns
+  rename(date = date_on_vial) |> 
+  # select columns of interest
+  select(date, sample_type, site,
+         ostracod,
+         copepod,
+         hemiptera_corixidae_boatman,
+         cladocera,
+         nematode,
+         diptera_ceratopogonidae, 
+         annelida_oligochaete,
+         diptera_chironomid,
+         annelida_polychaete) |> 
+# filter to only include "filtered beaker" samples
+  filter(sample_type %in% c("FB 250", "FB250")) |> 
+  # convert the data frame to long format
+  pivot_longer(cols = ostracod:annelida_polychaete,
+               # new column for the old column names
+               names_to = "taxon",
+               # new column for the 
+               values_to = "abundance") |> 
+  # group by date, site, taxon
+  group_by(date, site, taxon) |>
+  # calculate average abundance per liter (sum abundance divided by 7.5 liters)
+  summarize(ave_lit = sum(abundance, na.rm = TRUE)/7.5) |> 
+  # ungroup data frame
+  ungroup() |> 
+  # create a new column called `date_site` to join with water quality
+  unite("date_site", date, site, remove = FALSE) |> 
+  # join with water quality
+  left_join(water_quality_clean, by = c("date_site")) |> 
+  # join with taxon list
+  left_join(taxon_list_clean, by = c("taxon" = "verbatim_name")) |> 
+  # add full names of sites
+  mutate(site_full = case_when(
+    site == "NVBR" ~ "North of Venoco Bridge",
+    site == "NEC" ~ "South of Venoco Bridge",
+    site == "NMC" ~ "Main Channel",
+    site == "NPB" ~ "South of Phelps Bridge",
+    site == "NPB1" ~ "North of Phelps Bridge",
+    site == "NPB2" ~ "Phelps Road",
+    site == "NWP" ~  "West Pond",
+    site == "NDC" ~ "Devereux Creek"
+  )) |> 
+  # setting factor levels for site
+  mutate(site_full = fct_reorder(site_full, med_sal, .fun = "median", .na_rm = TRUE),
+         site_full = fct_rev(site_full))
+
+```
+
+# 3. Visualizing
+
+## Visualizing missing values
